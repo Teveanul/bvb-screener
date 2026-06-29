@@ -30,12 +30,16 @@ def descarca_date_bet(companii):
     rezultate = []
     for ticker in companii:
         try:
+            # Descărcăm datele istorice
             df = yf.download(ticker, period="2y", interval="1d", progress=False)
+            
             if not df.empty:
-                if isinstance(df['Close'], pd.DataFrame):
-                    preturi_inchidere = df['Close'][ticker].dropna()
-                else:
-                    preturi_inchidere = df['Close'].dropna()
+                # REPARARE: Aplatizăm structura Multi-Index generată de noile versiuni yfinance
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.droplevel(1)
+                
+                # Extrege prețurile de închidere în siguranță
+                preturi_inchidere = df['Close'].dropna()
                 
                 if len(preturi_inchidere) >= 200:
                     pret_curent = float(preturi_inchidere.iloc[-1])
@@ -64,7 +68,7 @@ def descarca_date_bet(companii):
                         ">SMA200": "✅ DA" if pret_curent > sma_200 else "❌ NU",
                         "Semnal": decizie
                     })
-        except:
+        except Exception as e:
             continue
     return rezultate
 
@@ -84,19 +88,21 @@ if strategie == "📊 Acțiuni Indice BET":
             rezultate = descarca_date_bet(companii_bet)
         
         if rezultate:
-            # Sortare automată în funcție de cel mai mic RSI (Cele mai bune momente primele)
+            # Sortare automată în funcție de cel mai mic RSI
             df_final_bet = pd.DataFrame(rezultate).sort_values(by="RSI", ascending=True).drop(columns=["Scor"])
             
-            # --- SECȚIUNE ALERTE GRAFICE PE MOBIL ---
+            # --- SECȚIUNE ALERTE GRAFICE PE MOBIL (REPARATĂ) ---
             alerte = df_final_bet[df_final_bet["Semnal"].isin(["🟢 CUMPĂRĂ", "🔵 ACUMULARE"])]
             if not alerte.empty:
                 st.markdown("### 🚨 Alerte Oportunități")
-                cols = st.columns(min(len(alerte), 3))  # Se adaptează dinamic pe coloane mobile
+                cols = st.columns(min(len(alerte), 3))
                 for i, row in enumerate(alerte.itertuples()):
                     with cols[i % len(cols)]:
+                        # REPARARE: Accesăm prețul direct prin numele proprietății sigure din rând
+                        pret_afisat = getattr(row, "Preț__RON_")
                         st.metric(
                             label=f"{row.Simbol} ({row.Semnal})", 
-                            value=f"{row._3} RON", 
+                            value=f"{pret_afisat} RON", 
                             delta=f"RSI: {row.RSI}"
                         )
                 st.divider()
@@ -104,7 +110,7 @@ if strategie == "📊 Acțiuni Indice BET":
             st.success("Scanare finalizată!")
             st.dataframe(df_final_bet, use_container_width=True, hide_index=True)
         else:
-            st.error("Eroare la preluarea datelor.")
+            st.error("Eroare la preluarea datelor de pe bursă. Reîncearcă.")
 
 # --- MODULUL 2: TITLURILE FIDELIS ACTIVE ---
 elif strategie == "🛡️ Emisiuni Fidelis Active":
@@ -170,16 +176,14 @@ elif strategie == "🛡️ Emisiuni Fidelis Active":
             "Valută": row["Valută"],
             "Preț %": P,
             "Cupon": f"{C}%",
-            "YTM_Val": round(ytm, 2),  # Coloană temporară ascunsă pentru sortare numerică exactă
+            "YTM_Val": round(ytm, 2),
             "YTM Real": f"{round(ytm, 2)}%",
             "Ghid": recomandare
         })
         
-    # Sortare automată descrescătoare în funcție de YTM-ul cel mai profitabil
     df_final_fidelis = pd.DataFrame(rezultate_ytm).sort_values(by="YTM_Val", ascending=False).drop(columns=["YTM_Val"])
     st.dataframe(df_final_fidelis, use_container_width=True, hide_index=True)
     
-    # Secțiune informativă compactă
     with st.expander("ℹ️ Ce înseamnă Ghidul Fidelis?"):
         st.markdown("""
         * **Sub par**: Cumperi mai ieftin de 100%. **Randamentul anual real (YTM) crește** peste cupon.
