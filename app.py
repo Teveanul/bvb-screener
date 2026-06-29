@@ -34,11 +34,11 @@ def descarca_date_bet(companii):
             df = yf.download(ticker, period="2y", interval="1d", progress=False)
             
             if not df.empty:
-                # REPARARE: Aplatizăm structura Multi-Index generată de noile versiuni yfinance
+                # Aplatizăm structura Multi-Index generată de noile versiuni yfinance
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = df.columns.droplevel(1)
                 
-                # Extrege prețurile de închidere în siguranță
+                # Extrage prețurile de închidere în siguranță
                 preturi_inchidere = df['Close'].dropna()
                 
                 if len(preturi_inchidere) >= 200:
@@ -60,12 +60,13 @@ def descarca_date_bet(companii):
                         decizie = "🟡 AȘTEAPTĂ"
                         scor = 3
                     
+                    # REPARARE RADICALĂ: Folosim doar litere simple (fără diacritice, fără paranteze) pentru cheile interne
                     rezultate.append({
                         "Scor": scor,
                         "Simbol": ticker.replace(".RO", ""),
-                        "Preț (RON)": round(pret_curent, 2),
+                        "Pret_RON": round(pret_curent, 2),
                         "RSI": round(rsi_actual, 1),
-                        ">SMA200": "✅ DA" if pret_curent > sma_200 else "❌ NU",
+                        "SMA200_Trend": "✅ DA" if pret_curent > sma_200 else "❌ NU",
                         "Semnal": decizie
                     })
         except Exception as e:
@@ -91,24 +92,29 @@ if strategie == "📊 Acțiuni Indice BET":
             # Sortare automată în funcție de cel mai mic RSI
             df_final_bet = pd.DataFrame(rezultate).sort_values(by="RSI", ascending=True).drop(columns=["Scor"])
             
-            # --- SECȚIUNE ALERTE GRAFICE PE MOBIL (REPARATĂ) ---
+            # --- SECȚIUNE ALERTE GRAFICE PE MOBIL (COMPLET REPARATĂ) ---
             alerte = df_final_bet[df_final_bet["Semnal"].isin(["🟢 CUMPĂRĂ", "🔵 ACUMULARE"])]
             if not alerte.empty:
                 st.markdown("### 🚨 Alerte Oportunități")
                 cols = st.columns(min(len(alerte), 3))
                 for i, row in enumerate(alerte.itertuples()):
                     with cols[i % len(cols)]:
-                        # REPARARE: Accesăm prețul direct prin numele proprietății sigure din rând
-                        pret_afisat = getattr(row, "Preț__RON_")
+                        # REPARARE: „row.Pret_RON” este acum o denumire 100% sigură în Python
                         st.metric(
                             label=f"{row.Simbol} ({row.Semnal})", 
-                            value=f"{pret_afisat} RON", 
+                            value=f"{row.Pret_RON} RON", 
                             delta=f"RSI: {row.RSI}"
                         )
                 st.divider()
             
             st.success("Scanare finalizată!")
-            st.dataframe(df_final_bet, use_container_width=True, hide_index=True)
+            
+            # Pentru tabel, redenumim coloanele la afișare ca să arate frumos din punct de vedere estetic
+            tabel_vizual = df_final_bet.rename(columns={
+                "Pret_RON": "Preț (RON)",
+                "SMA200_Trend": ">SMA200"
+            })
+            st.dataframe(tabel_vizual, use_container_width=True, hide_index=True)
         else:
             st.error("Eroare la preluarea datelor de pe bursă. Reîncearcă.")
 
