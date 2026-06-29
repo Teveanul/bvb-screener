@@ -23,36 +23,20 @@ def calculeaza_rsi(data, window=14):
     rsi = 100 - (100 / (1 + rs))
     return rsi
 
-# --- MODULUL 1: TOATE CELE 20 DE ACȚIUNI DIN INDICELE BET ---
-if strategie == "📊 Toate cele 20 de Acțiuni din Indicele BET":
-    st.subheader("🔍 Ierarhizare Portofoliu BVB după Oportunitatea de Cumpărare")
-    st.write("Acțiunile de top din indicele BET sunt scanate și sortate automat. Cele mai bune momente de intrare apar primele.")
-    
-    companii_bet = [
-        "TLV.RO", "SNP.RO", "BRD.RO", "SNG.RO", "H2O.RO", 
-        "DIGI.RO", "ONE.RO", "TEL.RO", "TGN.RO", "EL.RO", 
-        "TTS.RO", "AQ.RO", "ATB.RO", "FP.RO", "BVB.RO",
-        "ALR.RO", "WINE.RO", "SMTL.RO", "M.RO", "COTE.RO"
-    ]
-    
-    if st.button("🚀 Rulează Scanarea Completă (20 Companii)"):
-        rezultate = []
-        progress_bar = st.progress(0)
-        
-        for idx, ticker in enumerate(companii_bet):
-            progress_bar.progress((idx + 1) / len(companii_bet))
+# Optimizare pentru mobil: Funcție cu Cache pentru descărcarea datelor
+@st.cache_data(ttl=3600)  # Datele sunt salvate în memorie timp de 1 oră
+def descarca_date_bet(companii):
+    rezultate = []
+    for ticker in companii:
+        try:
             df = yf.download(ticker, period="2y", interval="1d", progress=False)
-            
             if not df.empty:
-                try:
-                    if isinstance(df['Close'], pd.DataFrame):
-                        preturi_inchidere = df['Close'][ticker].dropna()
-                    else:
-                        preturi_inchidere = df['Close'].dropna()
-                    
-                    if len(preturi_inchidere) < 200:
-                        continue
-                        
+                if isinstance(df['Close'], pd.DataFrame):
+                    preturi_inchidere = df['Close'][ticker].dropna()
+                else:
+                    preturi_inchidere = df['Close'].dropna()
+                
+                if len(preturi_inchidere) >= 200:
                     pret_curent = float(preturi_inchidere.iloc[-1])
                     sma_200 = float(preturi_inchidere.rolling(window=200).mean().iloc[-1])
                     rsi_seria = calculeaza_rsi(preturi_inchidere)
@@ -79,22 +63,38 @@ if strategie == "📊 Toate cele 20 de Acțiuni din Indicele BET":
                         "Peste SMA200 (Trend Lung)": "✅ DA" if pret_curent > sma_200 else "❌ NU",
                         "Recomandare Asistent": decizie
                     })
-                except:
-                    continue
-                
-        progress_bar.empty()
+        except:
+            continue
+    return rezultate
+
+# --- MODULUL 1: TOATE CELE 20 DE ACȚIUNI DIN INDICELE BET ---
+if strategie == "📊 Toate cele 20 de Acțiuni din Indicele BET":
+    st.subheader("🔍 Ierarhizare Portofoliu BVB după Oportunitatea de Cumpărare")
+    st.write("Acțiunile de top din indicele BET sunt scanate și sortate automat.")
+    
+    companii_bet = [
+        "TLV.RO", "SNP.RO", "BRD.RO", "SNG.RO", "H2O.RO", 
+        "DIGI.RO", "ONE.RO", "TEL.RO", "TGN.RO", "EL.RO", 
+        "TTS.RO", "AQ.RO", "ATB.RO", "FP.RO", "BVB.RO",
+        "ALR.RO", "WINE.RO", "SMTL.RO", "M.RO", "COTE.RO"
+    ]
+    
+    if st.button("🚀 Rulează Scanarea Completă (20 Companii)"):
+        with st.spinner("Se descarcă datele de pe Yahoo Finance..."):
+            rezultate = descarca_date_bet(companii_bet)
         
         if rezultate:
             tabel_final = pd.DataFrame(rezultate).sort_values(by="Scor", ascending=True).drop(columns=["Scor"])
-            st.success("Toate cele 20 de companii din indicele BET au fost scanate și ierarhizate cu succes!")
+            st.success("Toate cele 20 de companii au fost scanate cu succes!")
             st.dataframe(tabel_final, use_container_width=True, hide_index=True)
+        else:
+            st.error("Nu s-au putut prelua datele. Verifică conexiunea la internet.")
 
-# --- MODULUL 2: TOATE TITLURILE FIDELIS ACTIVE (VARIANTĂ SIMPLIFICATĂ) ---
+# --- MODULUL 2: TOATE TITLURILE FIDELIS ACTIVE ---
 elif strategie == "🛡️ Scanner Complet & Ierarhizare TOATE Emisiunile Fidelis Active":
-    st.subheader("🛡️ Matricea Dinamică Fidelis (Ordonată automat după Profitabilitatea Reală)")
-    st.write("Modifică prețurile în tabelul de mai jos direct din TradeVille. Aplicația reordonează instant emisiunile după randamentul YTM.")
+    st.subheader("🛡️ Matricea Dinamică Fidelis")
+    st.write("Modifică prețurile în tabelul de mai jos direct din TradeVille.")
     
-    # Bază de date extinsă (Coloana "Tip" a fost eliminată pentru simplitate)
     toate_emisiunile_fidelis = [
         {"Simbol": "R2612A", "Cupon": 7.25, "Ani_Ramasi": 0.5, "Monedă": "RON"},
         {"Simbol": "R2704A", "Cupon": 6.00, "Ani_Ramasi": 0.8, "Monedă": "RON"},
@@ -124,8 +124,6 @@ elif strategie == "🛡️ Scanner Complet & Ierarhizare TOATE Emisiunile Fideli
     
     df_baza = pd.DataFrame(toate_emisiunile_fidelis)
     df_baza["Preț TradeVille (%)"] = 99.5
-    
-    st.write("### ⚙️ Instrucțiuni: Editează celulele din coloana 'Preț TradeVille (%)' direct pe ecran:")
     
     tabel_editabil = st.data_editor(
         df_baza[["Simbol", "Monedă", "Cupon", "Ani_Ramasi", "Preț TradeVille (%)"]],
@@ -160,8 +158,5 @@ elif strategie == "🛡️ Scanner Complet & Ierarhizare TOATE Emisiunile Fideli
             "Ghid Rapid": recomandare
         })
         
-    df_final_fidelis = pd.DataFrame(rezultate_ytm).sort_values(by="Randament Anual Real (YTM %)", ascending=False)
-    
-    st.write("---")
-    st.write("### 🏆 Clasamentul Profitabilității Reale (Sortat automat de la cel mai mare YTM în jos):")
+    df_final_fidelis = pd.DataFrame(rezultate_ytm)
     st.dataframe(df_final_fidelis, use_container_width=True, hide_index=True)
