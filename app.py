@@ -60,7 +60,6 @@ def descarca_date_bet(companii):
                         decizie = "🟡 AȘTEAPTĂ"
                         scor = 3
                     
-                    # REPARARE RADICALĂ: Folosim doar litere simple (fără diacritice, fără paranteze) pentru cheile interne
                     rezultate.append({
                         "Scor": scor,
                         "Simbol": ticker.replace(".RO", ""),
@@ -92,14 +91,13 @@ if strategie == "📊 Acțiuni Indice BET":
             # Sortare automată în funcție de cel mai mic RSI
             df_final_bet = pd.DataFrame(rezultate).sort_values(by="RSI", ascending=True).drop(columns=["Scor"])
             
-            # --- SECȚIUNE ALERTE GRAFICE PE MOBIL (COMPLET REPARATĂ) ---
+            # --- SECȚIUNE ALERTE GRAFICE PE MOBIL ---
             alerte = df_final_bet[df_final_bet["Semnal"].isin(["🟢 CUMPĂRĂ", "🔵 ACUMULARE"])]
             if not alerte.empty:
                 st.markdown("### 🚨 Alerte Oportunități")
                 cols = st.columns(min(len(alerte), 3))
                 for i, row in enumerate(alerte.itertuples()):
                     with cols[i % len(cols)]:
-                        # REPARARE: „row.Pret_RON” este acum o denumire 100% sigură în Python
                         st.metric(
                             label=f"{row.Simbol} ({row.Semnal})", 
                             value=f"{row.Pret_RON} RON", 
@@ -109,12 +107,21 @@ if strategie == "📊 Acțiuni Indice BET":
             
             st.success("Scanare finalizată!")
             
-            # Pentru tabel, redenumim coloanele la afișare ca să arate frumos din punct de vedere estetic
+            # Redenumim coloanele la afișare ca să arate frumos din punct de vedere estetic
             tabel_vizual = df_final_bet.rename(columns={
                 "Pret_RON": "Preț (RON)",
                 "SMA200_Trend": ">SMA200"
             })
             st.dataframe(tabel_vizual, use_container_width=True, hide_index=True)
+            
+            # --- LEGENDĂ EXPLICATIVĂ ACTIUNI BET ---
+            with st.expander("ℹ️ Ghid Semnale Acțiuni (Legendă)"):
+                st.markdown("""
+                * **🟢 CUMPĂRĂ (Preț optim, trend crescător)**: Cumperi o acțiune care este deja pe un trend ascendent (prețul e peste SMA200), dar care a avut o mică corecție pe termen scurt (RSI < 45). Intri pe un val care deja urcă.
+                * **🔵 ACUMULARE (Ieftin, trend descendent)**: Cumperi o acțiune care încă scade sau este la pământ (prețul sub SMA200 și RSI < 35). Strategia de acumulare presupune că **nu cumperi toată poziția odată**, ci în tranșe periodice pentru a obține un preț mediu de achiziție bun.
+                * **🟡 AȘTEAPTĂ**: Moment neutru sau de observație. Acțiunea nu se află în nicio zonă extremă din punct de vedere tehnic.
+                * **🔴 VINDE**: Acțiunea este supra-cumpărată pe termen scurt (RSI > 70). Moment oportun pentru marcarea profitului.
+                """)
         else:
             st.error("Eroare la preluarea datelor de pe bursă. Reîncearcă.")
 
