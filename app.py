@@ -23,7 +23,7 @@ def calculeaza_rsi(data, window=14):
     rsi = 100 - (100 / (1 + rs))
     return rsi
 
-# --- MODULUL 1: TOATE CELE 20 DE ACȚIUNI DIN INDICELE BET (REPARAT DEFINITIV) ---
+# --- MODULUL 1: TOATE CELE 20 DE ACȚIUNI DIN INDICELE BET ---
 if strategie == "📊 Toate cele 20 de Acțiuni din Indicele BET":
     st.subheader("🔍 Ierarhizare Portofoliu BVB după Oportunitatea de Cumpărare")
     st.write("Acțiunile de top din indicele BET sunt scanate și sortate automat. Cele mai bune momente de intrare apar primele.")
@@ -39,16 +39,12 @@ if strategie == "📊 Toate cele 20 de Acțiuni din Indicele BET":
         rezultate = []
         progress_bar = st.progress(0)
         
-        # Iterăm individual prin fiecare ticker pentru a evita conflictul Multi-Index yfinance
         for idx, ticker in enumerate(companii_bet):
             progress_bar.progress((idx + 1) / len(companii_bet))
-            
-            # Descărcăm datele strict pentru această companie
             df = yf.download(ticker, period="2y", interval="1d", progress=False)
             
             if not df.empty:
                 try:
-                    # Extragere curată a seriei unidimensionale de preț (Close)
                     if isinstance(df['Close'], pd.DataFrame):
                         preturi_inchidere = df['Close'][ticker].dropna()
                     else:
@@ -62,7 +58,6 @@ if strategie == "📊 Toate cele 20 de Acțiuni din Indicele BET":
                     rsi_seria = calculeaza_rsi(preturi_inchidere)
                     rsi_actual = float(rsi_seria.iloc[-1])
                     
-                    # Decizie bazată strict pe regulile de Risc Mediu solicitate
                     if pret_curent > sma_200 and rsi_actual < 45:
                         decizie = "1. 🟢 CUMPĂRĂ (Preț optim, trend crescător)"
                         scor = 1
@@ -84,62 +79,59 @@ if strategie == "📊 Toate cele 20 de Acțiuni din Indicele BET":
                         "Peste SMA200 (Trend Lung)": "✅ DA" if pret_curent > sma_200 else "❌ NU",
                         "Recomandare Asistent": decizie
                     })
-                except Exception as e:
-                    # Ignoră eventualele erori minore de rețea sau simboluri suspendate temporar la tranzacționare
+                except:
                     continue
                 
         progress_bar.empty()
         
         if rezultate:
-            tabel_final = pd.DataFrame(rezultate).sort_values(by="Scor", ascending=True)
-            tabel_final = tabel_final.drop(columns=["Scor"])
+            tabel_final = pd.DataFrame(rezultate).sort_values(by="Scor", ascending=True).drop(columns=["Scor"])
             st.success("Toate cele 20 de companii din indicele BET au fost scanate și ierarhizate cu succes!")
             st.dataframe(tabel_final, use_container_width=True, hide_index=True)
-        else:
-            st.error("Nu s-au putut procesa datele brute de pe Yahoo Finance. Încearcă din nou în câteva secunde.")
 
-# --- MODULUL 2: TOATE TITLURILE FIDELIS ACTIVE (RĂMÂNE IDENTIC) ---
+# --- MODULUL 2: TOATE TITLURILE FIDELIS ACTIVE (VARIANTĂ SIMPLIFICATĂ) ---
 elif strategie == "🛡️ Scanner Complet & Ierarhizare TOATE Emisiunile Fidelis Active":
     st.subheader("🛡️ Matricea Dinamică Fidelis (Ordonată automat după Profitabilitatea Reală)")
     st.write("Modifică prețurile în tabelul de mai jos direct din TradeVille. Aplicația reordonează instant emisiunile după randamentul YTM.")
     
+    # Bază de date extinsă (Coloana "Tip" a fost eliminată pentru simplitate)
     toate_emisiunile_fidelis = [
-        {"Simbol": "R2612A", "Tip": "Lei Standard", "Cupon": 7.25, "Ani_Ramasi": 0.5, "Monedă": "RON"},
-        {"Simbol": "R2704A", "Tip": "Lei Standard", "Cupon": 6.00, "Ani_Ramasi": 0.8, "Monedă": "RON"},
-        {"Simbol": "R2707B", "Tip": "Lei Standard", "Cupon": 8.25, "Ani_Ramasi": 1.0, "Monedă": "RON"},
-        {"Simbol": "R2710A", "Tip": "Lei Standard", "Cupon": 6.85, "Ani_Ramasi": 1.3, "Monedă": "RON"},
-        {"Simbol": "R2712A", "Tip": "Lei Standard", "Cupon": 6.10, "Ani_Ramasi": 1.5, "Monedă": "RON"},
-        {"Simbol": "R2804A", "Tip": "Lei Standard", "Cupon": 6.85, "Ani_Ramasi": 1.8, "Monedă": "RON"},
-        {"Simbol": "R2805A", "Tip": "Lei Standard", "Cupon": 7.40, "Ani_Ramasi": 1.9, "Monedă": "RON"},
-        {"Simbol": "R2904A", "Tip": "Lei Standard", "Cupon": 7.00, "Ani_Ramasi": 2.8, "Monedă": "RON"},
-        {"Simbol": "R3005A", "Tip": "Lei Standard", "Cupon": 7.80, "Ani_Ramasi": 3.9, "Monedă": "RON"},
-        {"Simbol": "R3104A", "Tip": "Lei Standard", "Cupon": 7.25, "Ani_Ramasi": 4.8, "Monedă": "RON"},
-        {"Simbol": "R2704B", "Tip": "Lei Donatori", "Cupon": 7.00, "Ani_Ramasi": 0.8, "Monedă": "RON"},
-        {"Simbol": "R2710B", "Tip": "Lei Donatori", "Cupon": 7.85, "Ani_Ramasi": 1.3, "Monedă": "RON"},
-        {"Simbol": "R2804B", "Tip": "Lei Donatori", "Cupon": 7.85, "Ani_Ramasi": 1.8, "Monedă": "RON"},
-        {"Simbol": "R2612AE", "Tip": "Euro Standard", "Cupon": 4.00, "Ani_Ramasi": 0.5, "Monedă": "EUR"},
-        {"Simbol": "R2612BE", "Tip": "Euro Standard", "Cupon": 3.75, "Ani_Ramasi": 0.5, "Monedă": "EUR"},
-        {"Simbol": "R2704AE", "Tip": "Euro Standard", "Cupon": 4.00, "Ani_Ramasi": 0.8, "Monedă": "EUR"},
-        {"Simbol": "R2707BE", "Tip": "Euro Standard", "Cupon": 4.40, "Ani_Ramasi": 1.0, "Monedă": "EUR"},
-        {"Simbol": "R2804AE", "Tip": "Euro Standard", "Cupon": 5.00, "Ani_Ramasi": 1.8, "Monedă": "EUR"},
-        {"Simbol": "R2805AE", "Tip": "Euro Standard", "Cupon": 3.85, "Ani_Ramasi": 1.9, "Monedă": "EUR"},
-        {"Simbol": "R2904AE", "Tip": "Euro Standard", "Cupon": 5.00, "Ani_Ramasi": 2.8, "Monedă": "EUR"},
-        {"Simbol": "R2908AE", "Tip": "Euro Standard", "Cupon": 5.00, "Ani_Ramasi": 3.2, "Monedă": "EUR"},
-        {"Simbol": "R2912AE", "Tip": "Euro Standard", "Cupon": 4.95, "Ani_Ramasi": 3.5, "Monedă": "EUR"},
-        {"Simbol": "R3009AE", "Tip": "Euro Standard", "Cupon": 5.25, "Ani_Ramasi": 4.2, "Monedă": "EUR"},
-        {"Simbol": "R3205AE", "Tip": "Euro Standard", "Cupon": 6.25, "Ani_Ramasi": 5.9, "Monedă": "EUR"}
+        {"Simbol": "R2612A", "Cupon": 7.25, "Ani_Ramasi": 0.5, "Monedă": "RON"},
+        {"Simbol": "R2704A", "Cupon": 6.00, "Ani_Ramasi": 0.8, "Monedă": "RON"},
+        {"Simbol": "R2707B", "Cupon": 8.25, "Ani_Ramasi": 1.0, "Monedă": "RON"},
+        {"Simbol": "R2710A", "Cupon": 6.85, "Ani_Ramasi": 1.3, "Monedă": "RON"},
+        {"Simbol": "R2712A", "Cupon": 6.10, "Ani_Ramasi": 1.5, "Monedă": "RON"},
+        {"Simbol": "R2804A", "Cupon": 6.85, "Ani_Ramasi": 1.8, "Monedă": "RON"},
+        {"Simbol": "R2805A", "Cupon": 7.40, "Ani_Ramasi": 1.9, "Monedă": "RON"},
+        {"Simbol": "R2904A", "Cupon": 7.00, "Ani_Ramasi": 2.8, "Monedă": "RON"},
+        {"Simbol": "R3005A", "Cupon": 7.80, "Ani_Ramasi": 3.9, "Monedă": "RON"},
+        {"Simbol": "R3104A", "Cupon": 7.25, "Ani_Ramasi": 4.8, "Monedă": "RON"},
+        {"Simbol": "R2704B", "Cupon": 7.00, "Ani_Ramasi": 0.8, "Monedă": "RON"},
+        {"Simbol": "R2710B", "Cupon": 7.85, "Ani_Ramasi": 1.3, "Monedă": "RON"},
+        {"Simbol": "R2804B", "Cupon": 7.85, "Ani_Ramasi": 1.8, "Monedă": "RON"},
+        {"Simbol": "R2612AE", "Cupon": 4.00, "Ani_Ramasi": 0.5, "Monedă": "EUR"},
+        {"Simbol": "R2612BE", "Cupon": 3.75, "Ani_Ramasi": 0.5, "Monedă": "EUR"},
+        {"Simbol": "R2704AE", "Cupon": 4.00, "Ani_Ramasi": 0.8, "Monedă": "EUR"},
+        {"Simbol": "R2707BE", "Cupon": 4.40, "Ani_Ramasi": 1.0, "Monedă": "EUR"},
+        {"Simbol": "R2804AE", "Cupon": 5.00, "Ani_Ramasi": 1.8, "Monedă": "EUR"},
+        {"Simbol": "R2805AE", "Cupon": 3.85, "Ani_Ramasi": 1.9, "Monedă": "EUR"},
+        {"Simbol": "R2904AE", "Cupon": 5.00, "Ani_Ramasi": 2.8, "Monedă": "EUR"},
+        {"Simbol": "R2908AE", "Cupon": 5.00, "Ani_Ramasi": 3.2, "Monedă": "EUR"},
+        {"Simbol": "R2912AE", "Cupon": 4.95, "Ani_Ramasi": 3.5, "Monedă": "EUR"},
+        {"Simbol": "R3009AE", "Cupon": 5.25, "Ani_Ramasi": 4.2, "Monedă": "EUR"},
+        {"Simbol": "R3205AE", "Cupon": 6.25, "Ani_Ramasi": 5.9, "Monedă": "EUR"}
     ]
     
     df_baza = pd.DataFrame(toate_emisiunile_fidelis)
     df_baza["Preț TradeVille (%)"] = 99.5
     
-    st.write("### ⚙️ Instrucțiuni: Editează direct celulele din coloana 'Preț TradeVille (%)' cu valorile din platformă:")
+    st.write("### ⚙️ Instrucțiuni: Editează celulele din coloana 'Preț TradeVille (%)' direct pe ecran:")
     
     tabel_editabil = st.data_editor(
-        df_baza[["Simbol", "Tip", "Monedă", "Cupon", "Ani_Ramasi", "Preț TradeVille (%)"]],
+        df_baza[["Simbol", "Monedă", "Cupon", "Ani_Ramasi", "Preț TradeVille (%)"]],
         hide_index=True,
         use_container_width=True,
-        disabled=["Simbol", "Tip", "Monedă", "Cupon", "Ani_Ramasi"]
+        disabled=["Simbol", "Monedă", "Cupon", "Ani_Ramasi"]
     )
     
     rezultate_ytm = []
@@ -153,24 +145,23 @@ elif strategie == "🛡️ Scanner Complet & Ierarhizare TOATE Emisiunile Fideli
         ytm = (numarator / numitor) * 100.0
         
         if P < 100.0:
-            recomandare = f"🟢 Cumperi sub valoarea nominală. Randament excelent ({round(ytm, 2)}% > {C}%)"
+            recomandare = f"🟢 Sub paritate. Randament mărit ({round(ytm, 2)}% > {C}%)"
         elif P == 100.0:
-            recomandare = f"🟡 Paritate perfectă. Câștigi fix dobânda cuponului ({C}%)"
+            recomandare = f"🟡 La paritate. Randament egal cu cuponul ({C}%)"
         else:
-            recomandare = f"⚠️ Plătești o primă. Randamentul scade sub dobânda nominală ({round(ytm, 2)}% < {C}%)"
+            recomandare = f"⚠️ Peste paritate. Randament diminuat ({round(ytm, 2)}% < {C}%)"
             
         rezultate_ytm.append({
             "Simbol": row["Simbol"],
-            "Tip": row["Tip"],
             "Monedă": row["Monedă"],
-            "Preț Introdus (%)": P,
-            "Dobândă Nominală": f"{C}%",
-            "Randament Real Anual (YTM %)": round(ytm, 2),
-            "Mesaj Asistent": recomandare
+            "Preț Curent (%)": P,
+            "Dobândă Cupon": f"{C}%",
+            "Randament Anual Real (YTM %)": round(ytm, 2),
+            "Ghid Rapid": recomandare
         })
         
-    df_final_fidelis = pd.DataFrame(rezultate_ytm).sort_values(by="Randament Real Anual (YTM %)", ascending=False)
+    df_final_fidelis = pd.DataFrame(rezultate_ytm).sort_values(by="Randament Anual Real (YTM %)", ascending=False)
     
     st.write("---")
-    st.write("### 🏆 Clasamentul Profitabilității Reale (Sortat de la cel mai mare YTM în jos):")
+    st.write("### 🏆 Clasamentul Profitabilității Reale (Sortat automat de la cel mai mare YTM în jos):")
     st.dataframe(df_final_fidelis, use_container_width=True, hide_index=True)
