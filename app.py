@@ -30,15 +30,12 @@ def descarca_date_bet(companii):
     rezultate = []
     for ticker in companii:
         try:
-            # Descărcăm datele istorice
             df = yf.download(ticker, period="2y", interval="1d", progress=False)
             
             if not df.empty:
-                # Aplatizăm structura Multi-Index generată de noile versiuni yfinance
                 if isinstance(df.columns, pd.MultiIndex):
                     df.columns = df.columns.droplevel(1)
                 
-                # Extrage prețurile de închidere în siguranță
                 preturi_inchidere = df['Close'].dropna()
                 
                 if len(preturi_inchidere) >= 200:
@@ -72,6 +69,28 @@ def descarca_date_bet(companii):
             continue
     return rezultate
 
+# Funcție pentru aplicarea culorilor în tabelul BET
+def coloreaza_semnal(val):
+    if "CUMPĂRĂ" in val:
+        return 'background-color: #d4edda; color: #155724; font-weight: bold;'
+    elif "ACUMULARE" in val:
+        return 'background-color: #cce5ff; color: #004085; font-weight: bold;'
+    elif "VINDE" in val:
+        return 'background-color: #f8d7da; color: #721c24; font-weight: bold;'
+    elif "AȘTEAPTĂ" in val:
+        return 'background-color: #fff3cd; color: #856404;'
+    return ''
+
+# Funcție pentru aplicarea culorilor în tabelul Fidelis
+def coloreaza_ghid(val):
+    if "Sub par" in val:
+        return 'background-color: #d4edda; color: #155724; font-weight: bold;'
+    elif "La par" in val:
+        return 'background-color: #fff3cd; color: #856404;'
+    elif "Peste par" in val:
+        return 'background-color: #f8d7da; color: #721c24;'
+    return ''
+
 # --- MODULUL 1: ACȚIUNI INDICE BET ---
 if strategie == "📊 Acțiuni Indice BET":
     st.write("Scanare automată bazată pe indicatorii tehnici RSI și SMA200.")
@@ -88,7 +107,6 @@ if strategie == "📊 Acțiuni Indice BET":
             rezultate = descarca_date_bet(companii_bet)
         
         if rezultate:
-            # Sortare automată în funcție de cel mai mic RSI
             df_final_bet = pd.DataFrame(rezultate).sort_values(by="RSI", ascending=True).drop(columns=["Scor"])
             
             # --- SECȚIUNE ALERTE GRAFICE PE MOBIL ---
@@ -107,14 +125,15 @@ if strategie == "📊 Acțiuni Indice BET":
             
             st.success("Scanare finalizată!")
             
-            # Redenumim coloanele la afișare ca să arate frumos din punct de vedere estetic
             tabel_vizual = df_final_bet.rename(columns={
                 "Pret_RON": "Preț (RON)",
                 "SMA200_Trend": ">SMA200"
             })
-            st.dataframe(tabel_vizual, use_container_width=True, hide_index=True)
             
-            # --- LEGENDĂ EXPLICATIVĂ ACTIUNI BET ---
+            # Aplicare stil colorat pe coloana "Semnal"
+            tabel_stilizat = tabel_vizual.style.map(coloreaza_semnal, subset=["Semnal"])
+            st.dataframe(tabel_stilizat, use_container_width=True, hide_index=True)
+            
             with st.expander("ℹ️ Ghid Semnale Acțiuni (Legendă)"):
                 st.markdown("""
                 * **🟢 CUMPĂRĂ (Preț optim, trend crescător)**: Cumperi o acțiune care este deja pe un trend ascendent (prețul e peste SMA200), dar care a avut o mică corecție pe termen scurt (RSI < 45). Intri pe un val care deja urcă.
@@ -195,11 +214,7 @@ elif strategie == "🛡️ Emisiuni Fidelis Active":
         })
         
     df_final_fidelis = pd.DataFrame(rezultate_ytm).sort_values(by="YTM_Val", ascending=False).drop(columns=["YTM_Val"])
-    st.dataframe(df_final_fidelis, use_container_width=True, hide_index=True)
     
-    with st.expander("ℹ️ Ce înseamnă Ghidul Fidelis?"):
-        st.markdown("""
-        * **Sub par**: Cumperi mai ieftin de 100%. **Randamentul anual real (YTM) crește** peste cupon.
-        * **La par**: Cumperi exact la 100%. Randamentul este egal cu cuponul.
-        * **Peste par**: Cumperi mai scump de 100%. **Randamentul scade** sub valoarea cuponului.
-        """)
+    # Aplicare stil colorat pe coloana "Ghid"
+    fidelis_stilizat = df_final_fidelis.style.map(coloreaza_ghid, subset=["Ghid"])
+st.dataframe(fidelis_stilizat, use_container_width=True, hide_index=True)with st.expander("ℹ️ Ce înseamnă Ghidul Fidelis?"):st.markdown("""* Sub par: Cumperi mai ieftin de 100%. Randamentul anual real (YTM) crește peste cupon.* La par: Cumperi exact la 100%. Randamentul este egal cu cuponul.* Peste par: Cumperi mai scump de 100%. Randamentul scade sub valoarea cuponului.""")
