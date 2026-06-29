@@ -5,7 +5,7 @@ import yfinance as yf
 # Setările principale ale paginii web - optimizate pentru ecrane mici
 st.set_page_config(page_title="Optimizare BVB", layout="wide", page_icon="📊")
 
-# Titlu simplificat conform cerinței
+# Titlu simplificat
 st.title("🏛️ Optimizare BVB")
 st.write("Instrument de scanare pentru cele 20 de acțiuni din indicele BET și emisiunile Fidelis.")
 
@@ -43,7 +43,6 @@ def descarca_date_bet(companii):
                     rsi_seria = calculeaza_rsi(preturi_inchidere)
                     rsi_actual = float(rsi_seria.iloc[-1])
                     
-                    # Scurtat denumirile textelor pentru a nu depăși ecranul pe mobil
                     if pret_curent > sma_200 and rsi_actual < 45:
                         decizie = "🟢 CUMPĂRĂ"
                         scor = 1
@@ -54,7 +53,7 @@ def descarca_date_bet(companii):
                         decizie = "🔴 VINDE"
                         scor = 4
                     else:
-                        decizie = "3. 🟡 AȘTEAPTĂ"
+                        decizie = "🟡 AȘTEAPTĂ"
                         scor = 3
                     
                     rezultate.append({
@@ -71,7 +70,6 @@ def descarca_date_bet(companii):
 
 # --- MODULUL 1: ACȚIUNI INDICE BET ---
 if strategie == "📊 Acțiuni Indice BET":
-    # Titlul vechi a fost eliminat complet conform instrucțiunilor
     st.write("Scanare automată bazată pe indicatorii tehnici RSI și SMA200.")
     
     companii_bet = [
@@ -86,11 +84,25 @@ if strategie == "📊 Acțiuni Indice BET":
             rezultate = descarca_date_bet(companii_bet)
         
         if rezultate:
-            tabel_final = pd.DataFrame(rezultate).sort_values(by="Scor", ascending=True).drop(columns=["Scor"])
-            st.success("Scanare finalizată!")
+            # Sortare automată în funcție de cel mai mic RSI (Cele mai bune momente primele)
+            df_final_bet = pd.DataFrame(rezultate).sort_values(by="RSI", ascending=True).drop(columns=["Scor"])
             
-            # Afișare tabel cu lățime maximă adaptabilă (use_container_width)
-            st.dataframe(tabel_final, use_container_width=True, hide_index=True)
+            # --- SECȚIUNE ALERTE GRAFICE PE MOBIL ---
+            alerte = df_final_bet[df_final_bet["Semnal"].isin(["🟢 CUMPĂRĂ", "🔵 ACUMULARE"])]
+            if not alerte.empty:
+                st.markdown("### 🚨 Alerte Oportunități")
+                cols = st.columns(min(len(alerte), 3))  # Se adaptează dinamic pe coloane mobile
+                for i, row in enumerate(alerte.itertuples()):
+                    with cols[i % len(cols)]:
+                        st.metric(
+                            label=f"{row.Simbol} ({row.Semnal})", 
+                            value=f"{row._3} RON", 
+                            delta=f"RSI: {row.RSI}"
+                        )
+                st.divider()
+            
+            st.success("Scanare finalizată!")
+            st.dataframe(df_final_bet, use_container_width=True, hide_index=True)
         else:
             st.error("Eroare la preluarea datelor.")
 
@@ -146,7 +158,6 @@ elif strategie == "🛡️ Emisiuni Fidelis Active":
         numarator = C + ((100.0 - P) / N)
         ytm = (numarator / numitor) * 100.0
         
-        # Am prescurtat mesajul de ghidare pentru a preveni derularea orizontală masivă
         if P < 100.0:
             recomandare = f"🟢 Sub par (YTM: {round(ytm, 2)}%)"
         elif P == 100.0:
@@ -159,9 +170,19 @@ elif strategie == "🛡️ Emisiuni Fidelis Active":
             "Valută": row["Valută"],
             "Preț %": P,
             "Cupon": f"{C}%",
+            "YTM_Val": round(ytm, 2),  # Coloană temporară ascunsă pentru sortare numerică exactă
             "YTM Real": f"{round(ytm, 2)}%",
             "Ghid": recomandare
         })
         
-    df_final_fidelis = pd.DataFrame(rezultate_ytm)
+    # Sortare automată descrescătoare în funcție de YTM-ul cel mai profitabil
+    df_final_fidelis = pd.DataFrame(rezultate_ytm).sort_values(by="YTM_Val", ascending=False).drop(columns=["YTM_Val"])
     st.dataframe(df_final_fidelis, use_container_width=True, hide_index=True)
+    
+    # Secțiune informativă compactă
+    with st.expander("ℹ️ Ce înseamnă Ghidul Fidelis?"):
+        st.markdown("""
+        * **Sub par**: Cumperi mai ieftin de 100%. **Randamentul anual real (YTM) crește** peste cupon.
+        * **La par**: Cumperi exact la 100%. Randamentul este egal cu cuponul.
+        * **Peste par**: Cumperi mai scump de 100%. **Randamentul scade** sub valoarea cuponului.
+        """)
